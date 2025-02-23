@@ -1,8 +1,7 @@
-from sklearn.cluster import KMeans
 from customer_segmentation.utils import *
 from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler
-from yellowbrick.cluster import KElbowVisualizer
+
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 500)
@@ -60,6 +59,9 @@ df_cluster = sc.fit_transform(df_cluster)
 
 df_cluster[0:5]
 
+#KMEANS
+from sklearn.cluster import KMeans
+from yellowbrick.cluster import KElbowVisualizer
 kmeans = KMeans()
 ssd = []
 K = range(1, 30)
@@ -89,17 +91,87 @@ kmeans.labels_
 
 clusters_kmeans = kmeans.labels_
 
-df["cluster"] = clusters_kmeans
+df["cluster_kmeans"] = clusters_kmeans
 
 df.head()
 
-df["cluster"].unique()
-df["cluster"] = df["cluster"] + 1
+df["cluster_kmeans"].unique()
+df["cluster_kmeans"] = df["cluster_kmeans"] + 1
 
-df.groupby("cluster").agg(["count","mean","median"])
+df.groupby("cluster_kmeans").agg(["count","mean","median"])
 
-cat_summary(df, "cluster", True)
+cat_summary(df, "cluster_kmeans", True)
+
+#HIERARCHICAL CLUSTERING
+from scipy.cluster.hierarchy import linkage
+from scipy.cluster.hierarchy import dendrogram
+
+hc_average = linkage(df_cluster, method = "average", metric = "euclidean")
+
+plt.figure(figsize=(10, 5))
+plt.title("Hiyerarşik Kümeleme Dendogramı")
+plt.xlabel("Gözlem Birimleri")
+plt.ylabel("Uzaklıklar")
+dendrogram(hc_average,
+           leaf_font_size=10)
+plt.show()
+
+
+
+plt.figure(figsize=(7, 5))
+plt.title("Hiyerarşik Kümeleme Dendogramı")
+plt.xlabel("Gözlem Birimleri")
+plt.ylabel("Uzaklıklar")
+dendrogram(hc_average,
+           truncate_mode="lastp",
+           p=40,
+           show_contracted=True,
+           leaf_font_size=10)
+plt.show()
+
+
+plt.figure(figsize=(7, 5))
+plt.title("Dendrograms")
+dend = dendrogram(hc_average)
+plt.axhline(y=1.30, color='y', linestyle='--')
+plt.axhline(y=1.28, color='g', linestyle='--')
+plt.axhline(y=1.27, color='r', linestyle='--')
+plt.axhline(y=1.25, color='b', linestyle='--')
+plt.show()
+#maybe y = 1.5
+
+
+from scipy.cluster.hierarchy import fcluster
+from sklearn.metrics import silhouette_score
+
+cluster_range = range(2, 10)
+silhouette_scores = []
+
+for k in cluster_range:
+    clusters = fcluster(hc_average, k, criterion="maxclust")
+    silhouette_scores.append(silhouette_score(df_cluster, clusters))
+
+plt.plot(cluster_range, silhouette_scores, marker="o")
+plt.xlabel("Küme Sayısı")
+plt.ylabel("Silhouette Skoru")
+plt.title("En İyi Küme Sayısını Belirleme")
+plt.show()
+
+
+from sklearn.cluster import AgglomerativeClustering
+hc_cluster = AgglomerativeClustering(n_clusters=10, linkage='average', metric = 'euclidean')
+hc_cluster.fit_predict(df_cluster)
+
+clusters_hc = hc_cluster.labels_
+df["cluster_hc"] = clusters_hc
+df["cluster_hc"] = df["cluster_hc"] + 1
+
+
+
+
 
 x_train, x_test, y_train, y_test = train_test_split(df, df["cluster"], test_size=0.30, random_state=42)
 
 base_models_cl(x_train, y_train)
+
+hyperparameter_optimization_cl(x_train, y_train)
